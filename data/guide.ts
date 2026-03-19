@@ -10,6 +10,10 @@ export type GuideScreen =
       title: string;
       body: string;
       likes: number;
+      links?: {
+        label: string;
+        url: string;
+      }[];
     }
   | {
       type: "gif";
@@ -33,62 +37,48 @@ export type GuideScreen =
     };
 
 export const guide: GuideScreen[] = [
-  // 1. ТЕКСТ
   {
     type: "text",
     title: "Национальная галерея в 20 историях",
     body: "Мы собрали увлекательные истории про главные шедевры галереи. Поехали! Свайпите вниз, чтобы перейти к следующему экрану",
     likes: 1,
   },
-
-  // 2. ГИФКА (навигация)
   {
     type: "gif",
     title: "Куда идти",
-    gif: "gifs/Scheme.gif",
+    gif: "/gifs/Scheme.gif",
     caption: "Идем к первому экспонату",
   },
-
-  // 3. АУДИО + КАРТИНКИ
   {
     type: "audio",
     title: "Arnolfini Portrait",
-    audio: "audio/Adoration.mp3",
-    baseImage:
-      "images/Adoration.jpg",
+    audio: "/audio/Adoration.mp3",
+    baseImage: "/images/Adoration.jpg",
     likes: 1,
     overlays: [
       {
         time: 240,
-        duration: 2,
-        image:
-          "images/Adoration zoom 1.png",
-      },
-      {
-        time: 242,
-        duration: 2,
-        image:
-          "images/Adoration zoom 2.png",
+        duration: 4,
+        image: "/images/Adoration zoom 1.png",
       },
       {
         time: 244,
         duration: 4,
-        image:
-          "images/Adoration zoom 3.png",
+        image: "/images/Adoration zoom 2.png",
+      },
+      {
+        time: 248,
+        duration: 4,
+        image: "/images/Adoration zoom 3.png",
       },
     ],
   },
-
-  // 4. ВИДЕО (кружок)
   {
     type: "video",
     title: "и ещё кое-что",
-    video:
-      "video/video.mp4",
+    video: "/video/video.mp4",
     likes: 50,
   },
-
-  // 5. ГИФКА
   {
     type: "gif",
     title: "Идем дальше",
