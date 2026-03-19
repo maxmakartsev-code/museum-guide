@@ -59,17 +59,17 @@ export const guide: GuideScreen[] = [
       {
         time: 240,
         duration: 4,
-        image: "/images/Adoration zoom 1.png",
+        image: "/images/Adoration zoom-1.png",
       },
       {
         time: 244,
         duration: 4,
-        image: "/images/Adoration zoom 2.png",
+        image: "/images/Adoration zoom-2.png",
       },
       {
         time: 248,
         duration: 4,
-        image: "/images/Adoration zoom 3.png",
+        image: "/images/Adoration zoom-3.png",
       },
     ],
   },

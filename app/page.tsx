@@ -400,29 +400,6 @@ export default function Home() {
     }
 
     if (screen.type === "text") {
-      return (
-        <div className="flex-1 overflow-y-auto px-4 py-6">
-          <div className="max-w-xl text-base leading-7 opacity-90">
-            {screen.body}
-          </div>
-
-          {screen.links && screen.links.length > 0 && (
-            <div className="mt-6 flex flex-col gap-3">
-              {screen.links.map((link) => (
-                <a
-                  key={link.url}
-                  href={link.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="underline opacity-90"
-                >
-                  {link.label}
-                </a>
-              ))}
-            </div>
-          )}
-        </div>
-      );
     }
 
     if (screen.type === "video") {
