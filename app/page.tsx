@@ -1,9 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { guide, type GuideScreen, type Overlay } from "../data/guide";
 
 const screens = guide;
+
+const STORAGE_KEYS = {
+  currentScreen: "museum-guide-current-screen",
+  audioPositions: "museum-guide-audio-positions",
+};
 
 export default function Home() {
   const [current, setCurrent] = useState(0);
@@ -33,13 +38,10 @@ export default function Home() {
   const dragStartPanRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
   const audioPositionsRef = useRef<number[]>(screens.map(() => 0));
+  const initializedRef = useRef(false);
 
   const screen = screens[current];
   const isLikeable = screen.type !== "gif";
-
-  const audioKey = useMemo(() => {
-    return screen.type === "audio" ? `audio-${current}` : `screen-${current}`;
-  }, [current, screen]);
 
   const getTouchDistance = (touches: React.TouchList) => {
     const dx = touches[0].clientX - touches[1].clientX;
@@ -69,12 +71,22 @@ export default function Home() {
     return activeOverlay ? activeOverlay.image : audioScreen.baseImage;
   };
 
+  const persistAudioPositions = () => {
+    try {
+      localStorage.setItem(
+        STORAGE_KEYS.audioPositions,
+        JSON.stringify(audioPositionsRef.current)
+      );
+    } catch {}
+  };
+
   const saveCurrentAudioPosition = () => {
     if (screen.type !== "audio") return;
     const audio = audioRef.current;
     if (!audio) return;
 
     audioPositionsRef.current[current] = audio.currentTime;
+    persistAudioPositions();
   };
 
   const resetZoom = () => {
@@ -179,8 +191,6 @@ export default function Home() {
 
       setPanX(dragStartPanRef.current.x + dx);
       setPanY(dragStartPanRef.current.y + dy);
-      setIsZooming(true);
-      return;
     }
   };
 
@@ -189,7 +199,6 @@ export default function Home() {
       if (e.touches.length === 0) {
         resetZoom();
       } else if (e.touches.length === 1 && zoomScale > 1) {
-        // Перешли с 2 пальцев на 1 — разрешаем тянуть одним пальцем
         dragStartRef.current = {
           x: e.touches[0].clientX,
           y: e.touches[0].clientY,
@@ -216,6 +225,45 @@ export default function Home() {
     }
   };
 
+  // Инициализация из localStorage
+  useEffect(() => {
+    if (initializedRef.current) return;
+
+    try {
+      const savedScreen = localStorage.getItem(STORAGE_KEYS.currentScreen);
+      const savedPositions = localStorage.getItem(STORAGE_KEYS.audioPositions);
+
+      if (savedPositions) {
+        const parsed = JSON.parse(savedPositions);
+        if (Array.isArray(parsed)) {
+          audioPositionsRef.current = parsed.map((v) =>
+            typeof v === "number" ? v : 0
+          );
+        }
+      }
+
+      if (savedScreen) {
+        const parsedScreen = Number(savedScreen);
+        if (
+          Number.isInteger(parsedScreen) &&
+          parsedScreen >= 0 &&
+          parsedScreen < screens.length
+        ) {
+          setCurrent(parsedScreen);
+        }
+      }
+    } catch {}
+
+    initializedRef.current = true;
+  }, []);
+
+  // Сохраняем номер текущего экрана
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.currentScreen, String(current));
+    } catch {}
+  }, [current]);
+
   useEffect(() => {
     if (screen.type === "audio") {
       const savedTime = audioPositionsRef.current[current] || 0;
@@ -236,6 +284,7 @@ export default function Home() {
     const handleTimeUpdate = () => {
       const time = audio.currentTime;
       audioPositionsRef.current[current] = time;
+      persistAudioPositions();
 
       if (!isZooming) {
         setCurrentImage(getImageForTime(screen, time));
@@ -249,6 +298,39 @@ export default function Home() {
     };
   }, [current, screen, isZooming]);
 
+  // Сохраняем позицию при уходе в фон / возврате
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      const audio = audioRef.current;
+
+      if (document.hidden) {
+        if (screen.type === "audio" && audio) {
+          audioPositionsRef.current[current] = audio.currentTime;
+          persistAudioPositions();
+        }
+        try {
+          localStorage.setItem(STORAGE_KEYS.currentScreen, String(current));
+        } catch {}
+      } else {
+        if (screen.type === "audio" && audio) {
+          const savedTime = audioPositionsRef.current[current] || 0;
+          try {
+            if (Math.abs(audio.currentTime - savedTime) > 0.3) {
+              audio.currentTime = savedTime;
+            }
+          } catch {}
+          setCurrentImage(getImageForTime(screen, savedTime));
+        }
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [current, screen]);
+
   const renderContent = (screen: GuideScreen) => {
     if (screen.type === "audio") {
       const savedTime = audioPositionsRef.current[current] || 0;
@@ -257,38 +339,21 @@ export default function Home() {
         <>
           <div className="px-4 mt-3">
             <audio
-              key={audioKey}
-              ref={(node) => {
-                audioRef.current = node;
-
-                if (!node) return;
-
-                const restore = () => {
-                  const time = audioPositionsRef.current[current] || 0;
-                  try {
-                    node.currentTime = time;
-                    setTimeout(() => {
-                      if (audioRef.current === node) {
-                        try {
-                          node.currentTime = time;
-                        } catch {}
-                      }
-                    }, 50);
-
-                    setCurrentImage(getImageForTime(screen, time));
-                  } catch {}
-                };
-
-                if (node.readyState >= 1) {
-                  restore();
-                } else {
-                  node.onloadedmetadata = restore;
-                  node.oncanplay = restore;
-                }
-              }}
+              key={`audio-${current}`}
+              ref={audioRef}
               controls
               preload="metadata"
               className="w-full"
+              onLoadedMetadata={(e) => {
+                const audio = e.currentTarget;
+                const time = audioPositionsRef.current[current] || 0;
+
+                if (time > 0) {
+                  try {
+                    audio.currentTime = time;
+                  } catch {}
+                }
+              }}
             >
               <source src={screen.audio} type="audio/mpeg" />
               Ваш браузер не поддерживает аудио.
